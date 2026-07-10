@@ -41,9 +41,10 @@ export const register = async (req, res, next) => {
     });
 
     // Send verification email (non-blocking)
-    sendVerificationEmail(email, verificationToken).catch((err) =>
-      console.error('Failed to send verification email:', err.message)
-    );
+    sendVerificationEmail(email, verificationToken).catch((err) => {
+      console.error('Failed to send verification email:');
+      console.error(err);
+    });
 
     res.status(201).json({
       success: true,
