@@ -17,6 +17,9 @@ import conversationRoutes from './routes/conversationRoutes.js';
 
 const app = express();
 
+// Trust Render/Vercel reverse proxy (required for secure cookies + rate limiting)
+app.set('trust proxy', 1);
+
 // Security
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
