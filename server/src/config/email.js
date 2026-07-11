@@ -1,38 +1,17 @@
-import nodemailer from 'nodemailer';
+import * as Brevo from '@getbrevo/brevo';
 
-console.log('SMTP_HOST:', process.env.SMTP_HOST);
-console.log('SMTP_PORT:', process.env.SMTP_PORT);
-console.log('SMTP_USER:', process.env.SMTP_USER);
-console.log('SMTP_PASS exists:', !!process.env.SMTP_PASS);
+const apiInstance = new Brevo.TransactionalEmailsApi();
+apiInstance.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-/**
- * Send an email
- * @param {object} options - { to, subject, html }
- */
-export const sendEmail = async ({ to, subject, html }) => {
-  const mailOptions = {
-    from: `"Pixora" <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    html,
-  };
-
-  await transporter.sendMail(mailOptions);
+const sendEmail = async ({ to, subject, html }) => {
+  const email = new Brevo.SendSmtpEmail();
+  email.sender = { name: 'Pixora', email: process.env.SMTP_USER };
+  email.to = [{ email: to }];
+  email.subject = subject;
+  email.htmlContent = html;
+  await apiInstance.sendTransacEmail(email);
 };
 
-/**
- * Send verification email
- */
 export const sendVerificationEmail = async (email, token) => {
   const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${token}`;
   const html = `
@@ -52,9 +31,6 @@ export const sendVerificationEmail = async (email, token) => {
   await sendEmail({ to: email, subject: 'Verify your Pixora account', html });
 };
 
-/**
- * Send password reset email
- */
 export const sendPasswordResetEmail = async (email, token) => {
   const resetUrl = `${process.env.CLIENT_URL}/reset-password/${token}`;
   const html = `
@@ -73,5 +49,3 @@ export const sendPasswordResetEmail = async (email, token) => {
   `;
   await sendEmail({ to: email, subject: 'Reset your Pixora password', html });
 };
-
-export default transporter;
