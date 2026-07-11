@@ -28,6 +28,10 @@ export const createStory = async (req, res, next) => {
       resource_type: mediaType,
     });
 
+    const audience = ['everyone', 'followers', 'close_friends'].includes(req.body.audience)
+      ? req.body.audience
+      : 'everyone';
+
     const story = await Story.create({
       author: req.user._id,
       media: {
@@ -37,6 +41,7 @@ export const createStory = async (req, res, next) => {
         duration: result.duration ?? null,
       },
       caption: req.body.caption?.trim() || '',
+      audience,
     });
 
     await story.populate('author', AUTHOR_SELECT);
@@ -50,6 +55,8 @@ export const createStory = async (req, res, next) => {
 export const getFeedStories = async (req, res, next) => {
   try {
     const currentUser = await User.findById(req.user._id);
+    const followingSet = new Set(currentUser.following.map((id) => id.toString()));
+    const closeFriendsSet = new Set((currentUser.closeFriends ?? []).map((id) => id.toString()));
     const authorIds = [req.user._id, ...currentUser.following];
 
     const stories = await Story.find({
@@ -59,14 +66,25 @@ export const getFeedStories = async (req, res, next) => {
       .sort({ createdAt: 1 })
       .populate('author', AUTHOR_SELECT);
 
+    // Filter by audience
+    const ownId = req.user._id.toString();
+    const visible = stories.filter((s) => {
+      const authorId = s.author._id.toString();
+      if (authorId === ownId) return true; // always see own stories
+      const audience = s.audience ?? 'everyone';
+      if (audience === 'everyone') return true;
+      if (audience === 'followers') return followingSet.has(authorId);
+      if (audience === 'close_friends') return closeFriendsSet.has(authorId);
+      return false;
+    });
+
     const grouped = new Map();
-    for (const story of stories) {
+    for (const story of visible) {
       const uid = story.author._id.toString();
       if (!grouped.has(uid)) grouped.set(uid, { user: story.author, stories: [] });
       grouped.get(uid).stories.push(withSeen(story, req.user._id));
     }
 
-    const ownId = req.user._id.toString();
     const result = [];
     if (grouped.has(ownId)) result.push(grouped.get(ownId));
 

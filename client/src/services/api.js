@@ -26,6 +26,12 @@ export const userService = {
   unfollow: (id) => api.post(`/users/${id}/unfollow`).then((r) => r.data),
   getFollowers: (username) => api.get(`/users/${username}/followers`).then((r) => r.data),
   getFollowing: (username) => api.get(`/users/${username}/following`).then((r) => r.data),
+  getFollowRequests: () => api.get('/users/follow-requests').then((r) => r.data),
+  acceptFollowRequest: (id) => api.post(`/users/${id}/accept-follow`).then((r) => r.data),
+  rejectFollowRequest: (id) => api.post(`/users/${id}/reject-follow`).then((r) => r.data),
+  getCloseFriends: () => api.get('/users/close-friends').then((r) => r.data),
+  addCloseFriend: (id) => api.post(`/users/${id}/close-friends`).then((r) => r.data),
+  removeCloseFriend: (id) => api.delete(`/users/${id}/close-friends`).then((r) => r.data),
 };
 
 export const commentService = {
@@ -62,6 +68,7 @@ export const messageService = {
   sendMessage: (conversationId, text) => api.post(`/conversations/${conversationId}/messages`, { text }).then((r) => r.data),
   sendMediaMessage: (conversationId, formData, onUploadProgress) =>
     api.post(`/conversations/${conversationId}/messages`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress,
     }).then((r) => r.data),
   sendSharedPost: (conversationId, sharedPost) =>

@@ -1,14 +1,16 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useInView } from 'react-intersection-observer';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Heart, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api/axios';
 import { ExploreSkeleton } from '../components/common/Skeletons';
+import { PostModal } from '../components/post/PostModal';
 
 // ── Post tile ─────────────────────────────────────────────────────────────────
-const ExploreTile = ({ post, index }) => (
+const ExploreTile = ({ post, index, onClick }) => (
   <motion.div
+    onClick={onClick}
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     whileHover={{ scale: 1.02, zIndex: 1 }}
@@ -41,6 +43,7 @@ const ExploreTile = ({ post, index }) => (
 // ── Explore page ──────────────────────────────────────────────────────────────
 export const Explore = () => {
   const { ref, inView } = useInView();
+  const [activePostId, setActivePostId] = useState(null);
 
   const fetchExplore = async ({ pageParam = 1 }) => {
     const res = await api.get(`/posts/explore?page=${pageParam}&limit=12`);
@@ -89,7 +92,7 @@ export const Explore = () => {
     <div className="mx-auto w-full max-w-[935px] px-4 pt-8">
       <div className="grid grid-cols-3 gap-px pb-10">
         {posts.map((post, i) => (
-          <ExploreTile key={post._id ?? post.id} post={post} index={i} />
+          <ExploreTile key={post._id ?? post.id} post={post} index={i} onClick={() => setActivePostId(post._id ?? post.id)} />
         ))}
       </div>
 
@@ -99,6 +102,10 @@ export const Explore = () => {
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-primary" />
         )}
       </div>
+
+      {activePostId && (
+        <PostModal postId={activePostId} onClose={() => setActivePostId(null)} />
+      )}
     </div>
   );
 };

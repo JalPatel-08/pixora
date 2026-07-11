@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, Heart, MessageCircle, UserPlus, Check } from 'lucide-react';
+import { Bell, Heart, MessageCircle, UserPlus, Check, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { notificationService } from '../services/api';
+import { notificationService, userService } from '../services/api';
 import { ProfileAvatar } from '../components/ProfileAvatar';
 import { timeAgo } from '../utils/formatters';
 import { EmptyState } from '../components/common/EmptyState';
@@ -38,6 +38,40 @@ export const Notifications = () => {
   const markAllMutation = useMutation({
     mutationFn: notificationService.markAllRead,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
+  const acceptMutation = useMutation({
+    mutationFn: (senderId) => userService.acceptFollowRequest(senderId),
+    onSuccess: (_, senderId) => {
+      queryClient.setQueryData(['notifications'], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          notifications: old.notifications.map((n) =>
+            n.sender?._id === senderId && n.type === 'follow_request'
+              ? { ...n, type: 'follow_accept', isRead: true }
+              : n
+          ),
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: ['followRequests'] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (senderId) => userService.rejectFollowRequest(senderId),
+    onSuccess: (_, senderId) => {
+      queryClient.setQueryData(['notifications'], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          notifications: old.notifications.filter(
+            (n) => !(n.sender?._id === senderId && n.type === 'follow_request')
+          ),
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: ['followRequests'] });
+    },
   });
 
   if (isLoading) {
@@ -118,7 +152,30 @@ export const Notifications = () => {
                   <span className="text-text-secondary">{n.message}</span>
                   <p className="mt-0.5 text-xs text-text-secondary">{timeAgo(n.createdAt)}</p>
                 </div>
-                <Icon className={`h-4 w-4 flex-shrink-0 ${iconColor}`} />
+                {n.type === 'follow_request' ? (
+                  <div className="flex flex-shrink-0 gap-2">
+                    <motion.button
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => acceptMutation.mutate(n.sender._id)}
+                      disabled={acceptMutation.isPending || rejectMutation.isPending}
+                      className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Accept
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => rejectMutation.mutate(n.sender._id)}
+                      disabled={acceptMutation.isPending || rejectMutation.isPending}
+                      className="flex items-center gap-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text transition-colors hover:bg-border disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Decline
+                    </motion.button>
+                  </div>
+                ) : (
+                  <Icon className={`h-4 w-4 flex-shrink-0 ${iconColor}`} />
+                )}
                 {n.post?.media?.[0] && (
                   <img
                     src={n.post.media[0].url}

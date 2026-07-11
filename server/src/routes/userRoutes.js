@@ -22,6 +22,10 @@ import {
   getSuggestions,
   getUserPosts,
   getSavedPosts,
+  getCloseFriends,
+  addCloseFriend,
+  removeCloseFriend,
+  getFollowRequests,
 } from '../controllers/userController.js';
 
 const router = Router();
@@ -52,6 +56,12 @@ router.put('/cover-photo', protect, upload.single('coverPhoto'), updateCoverPhot
 
 // Delete cover photo (authenticated)
 router.delete('/cover-photo', protect, deleteCoverPhoto);
+
+// Close friends (authenticated) — must be BEFORE /:username wildcard
+router.get('/close-friends', protect, getCloseFriends);
+
+// Follow requests (authenticated) — must be BEFORE /:username wildcard
+router.get('/follow-requests', protect, getFollowRequests);
 
 // Get user profile (public, with optional auth for isFollowing flag)
 router.get('/:username', optionalAuth, getUserProfile);
@@ -85,5 +95,9 @@ router.post('/:id/unblock', protect, unblockUser);
 
 // Remove a follower (authenticated)
 router.delete('/:id/follower', protect, removeFollower);
+
+// Close friends add/remove (authenticated)
+router.post('/:id/close-friends', protect, addCloseFriend);
+router.delete('/:id/close-friends', protect, removeCloseFriend);
 
 export default router;

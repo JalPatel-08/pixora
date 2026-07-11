@@ -30,6 +30,11 @@ const storySchema = new mongoose.Schema(
     },
     viewers: { type: [viewerSchema], default: [] },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    audience: {
+      type: String,
+      enum: ['everyone', 'followers', 'close_friends'],
+      default: 'everyone',
+    },
     expiresAt: {
       type: Date,
       default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),

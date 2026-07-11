@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
-import { Sidebar, BottomNav } from '../components/Navigation';
+import { Sidebar, BottomNav, MobileTopBar } from '../components/Navigation';
 import { RightSidebar } from '../components/RightSidebar';
 import { CreatePostModal } from '../components/feed/CreatePostModal';
 
@@ -41,8 +41,10 @@ export const MainLayout = () => {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar onCreateClick={() => setShowCreate(true)} />
+      <MobileTopBar onCreateClick={() => setShowCreate(true)} />
 
-      <main className="flex-1 pb-16 md:ml-64 md:pb-0">
+      {/* pt-14 on mobile to clear the top bar; md:pt-0 since desktop has no top bar */}
+      <main className="flex-1 pb-16 md:ml-64 md:pb-0 pt-14 md:pt-0">
         {isMessages ? (
           <div className="h-full px-4 pt-4">
             <Outlet />

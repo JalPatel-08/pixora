@@ -2,12 +2,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ImageIcon, Video } from 'lucide-react';
 import { ProfileAvatar } from '../ProfileAvatar';
 import { timeAgo } from '../../utils/formatters';
+import { useSocket } from '../../contexts/SocketContext';
+import { useEffect, useState } from 'react';
 
 function getOtherParticipant(conversation, currentUserId) {
   return conversation.participants.find(
     (p) => p._id !== currentUserId && p._id?.toString() !== currentUserId
   );
 }
+
+// ── Online users hook ─────────────────────────────────────────────────────────
+export const useOnlineUsers = () => {
+  const { socket } = useSocket();
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  useEffect(() => {
+    if (!socket) return;
+    const handler = (users) => setOnlineUsers(users);
+    socket.on('onlineUsers', handler);
+    return () => socket.off('onlineUsers', handler);
+  }, [socket]);
+  return onlineUsers;
+};
+
+// ── Online dot ────────────────────────────────────────────────────────────────
+const OnlineDot = () => (
+  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-success" />
+);
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 export const ConversationListSkeleton = ({ count = 6 }) => (

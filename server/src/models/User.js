@@ -105,6 +105,12 @@ const userSchema = new mongoose.Schema(
     loginAttempts: { type: Number, default: 0 },
     lockUntil: Date,
     lastSeen: { type: Date, default: null },
+    closeFriends: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     timestamps: true,

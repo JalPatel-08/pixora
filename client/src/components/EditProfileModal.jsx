@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, Camera, Loader2 } from 'lucide-react';
+import { X, Camera, Loader2, Lock, Globe } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { userService } from '../services/api';
@@ -71,6 +71,7 @@ export const EditProfileModal = ({ user, onClose }) => {
     bio: user.bio || '',
     website: user.website || '',
     location: user.location || '',
+    isPrivate: user.isPrivate ?? false,
   });
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [coverPreview, setCoverPreview] = useState(null);
@@ -254,6 +255,37 @@ export const EditProfileModal = ({ user, onClose }) => {
             <Field label="Bio" value={form.bio} onChange={set('bio')} placeholder="Bio" textarea maxLength={150} />
             <Field label="Website" value={form.website} onChange={set('website')} placeholder="https://yoursite.com" />
             <Field label="Location" value={form.location} onChange={set('location')} placeholder="City, Country" />
+
+            {/* Private account toggle */}
+            <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                  form.isPrivate ? 'bg-primary/10 text-primary' : 'bg-border text-text-secondary'
+                }`}>
+                  {form.isPrivate ? <Lock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-text">Private account</p>
+                  <p className="text-xs text-text-secondary">Only approved followers can see your posts</p>
+                </div>
+              </div>
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.92 }}
+                onClick={() => setForm((f) => ({ ...f, isPrivate: !f.isPrivate }))}
+                className={`relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 ${
+                  form.isPrivate ? 'bg-primary' : 'bg-border'
+                }`}
+              >
+                <motion.span
+                  layout
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm ${
+                    form.isPrivate ? 'left-[22px]' : 'left-0.5'
+                  }`}
+                />
+              </motion.button>
+            </div>
           </div>
         </div>
       </motion.div>

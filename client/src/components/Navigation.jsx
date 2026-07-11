@@ -10,7 +10,7 @@ import {
   PlusSquare, User, LogOut, Sun, Moon,
 } from 'lucide-react';
 import { SearchPanel } from './SearchPanel';
-import { messageService } from '../services/api';
+import { messageService, notificationService } from '../services/api';
 
 // ── Ripple ────────────────────────────────────────────────────────────────────
 function spawnRipple(e) {
@@ -36,7 +36,7 @@ function spawnRipple(e) {
   span.addEventListener('animationend', () => span.remove(), { once: true });
 }
 
-// ── Unread count hook ─────────────────────────────────────────────────────────
+// ── Unread messages hook ──────────────────────────────────────────────────────
 const useUnreadCount = () => {
   const { user } = useAuth();
   const { socket } = useSocket();
@@ -66,8 +66,32 @@ const useUnreadCount = () => {
   return data?.count ?? 0;
 };
 
-// ── Badge — pops in, pulses once on new message ───────────────────────────────
-const UnreadBadge = ({ count }) => {
+// ── Unread notifications hook ─────────────────────────────────────────────────
+const useUnreadNotifCount = () => {
+  const { user } = useAuth();
+  const { socket } = useSocket();
+  const queryClient = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ['notifUnreadCount'],
+    queryFn: notificationService.getUnreadCount,
+    enabled: !!user,
+    staleTime: 30 * 1000,
+  });
+
+  useEffect(() => {
+    if (!socket) return;
+    const handler = () =>
+      queryClient.setQueryData(['notifUnreadCount'], (old) => ({ ...old, count: (old?.count ?? 0) + 1 }));
+    socket.on('notification', handler);
+    return () => socket.off('notification', handler);
+  }, [socket, queryClient]);
+
+  return data?.count ?? 0;
+};
+
+// ── Badge ─────────────────────────────────────────────────────────────────────
+const Badge = ({ count }) => {
   if (!count) return null;
   return (
     <motion.span
@@ -97,7 +121,7 @@ const PixoraLogo = () => (
   </Link>
 );
 
-// ── Nav item ──────────────────────────────────────────────────────────────────
+// ── Desktop Nav item ──────────────────────────────────────────────────────────
 const NavItem = ({ icon: Icon, label, to, active, badge, onClick }) => {
   const inner = (
     <motion.div
@@ -111,7 +135,6 @@ const NavItem = ({ icon: Icon, label, to, active, badge, onClick }) => {
           : 'text-text font-normal hover:bg-background hover:text-primary'
       }`}
     >
-      {/* Icon */}
       <span className="relative flex-shrink-0">
         <motion.span
           animate={active ? { scale: 1.1 } : { scale: 1 }}
@@ -122,10 +145,7 @@ const NavItem = ({ icon: Icon, label, to, active, badge, onClick }) => {
         </motion.span>
         {badge}
       </span>
-
       <span className="text-sm">{label}</span>
-
-      {/* Active dot */}
       <AnimatePresence>
         {active && (
           <motion.div
@@ -145,7 +165,7 @@ const NavItem = ({ icon: Icon, label, to, active, badge, onClick }) => {
   return <Link to={to}>{inner}</Link>;
 };
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
+// ── Desktop Sidebar ───────────────────────────────────────────────────────────
 export const Sidebar = ({ onCreateClick }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -153,6 +173,7 @@ export const Sidebar = ({ onCreateClick }) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const panelRef = useRef(null);
   const unreadCount = useUnreadCount();
+  const notifCount = useUnreadNotifCount();
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -180,12 +201,10 @@ export const Sidebar = ({ onCreateClick }) => {
     <>
       <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 flex-col border-r border-border bg-surface dark:bg-surface md:flex">
         <div className="flex h-full flex-col px-3 py-6">
-          {/* Logo */}
           <div className="mb-8 px-1">
             <PixoraLogo />
           </div>
 
-          {/* Nav */}
           <nav className="flex flex-1 flex-col gap-0.5">
             <NavItem
               icon={Search}
@@ -202,13 +221,14 @@ export const Sidebar = ({ onCreateClick }) => {
                 active={isActive(item.path)}
                 badge={
                   item.name === 'Messages'
-                    ? <UnreadBadge key={unreadCount} count={unreadCount} />
+                    ? <Badge key={unreadCount} count={unreadCount} />
+                    : item.name === 'Notifications'
+                    ? <Badge key={notifCount} count={notifCount} />
                     : null
                 }
               />
             ))}
 
-            {/* Create */}
             <motion.button
               whileHover={{ x: 4 }}
               whileTap={{ scale: 0.96 }}
@@ -222,7 +242,6 @@ export const Sidebar = ({ onCreateClick }) => {
             </motion.button>
           </nav>
 
-          {/* Bottom actions */}
           <div className="mt-auto flex flex-col gap-0.5 border-t border-border pt-4">
             <motion.button
               whileHover={{ x: 4 }}
@@ -259,7 +278,6 @@ export const Sidebar = ({ onCreateClick }) => {
         </div>
       </aside>
 
-      {/* Search slide-out panel */}
       <AnimatePresence>
         {searchOpen && (
           <motion.div
@@ -278,25 +296,94 @@ export const Sidebar = ({ onCreateClick }) => {
   );
 };
 
-// ── Bottom nav (mobile) ───────────────────────────────────────────────────────
+// ── Mobile Top App Bar ────────────────────────────────────────────────────────
+export const MobileTopBar = ({ onCreateClick }) => {
+  const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
+  const unreadCount = useUnreadCount();
+  const notifCount = useUnreadNotifCount();
+  const isMessages = location.pathname.startsWith('/messages');
+
+  // Hide on messages page (it has its own header)
+  if (isMessages) return null;
+
+  return (
+    <motion.header
+      initial={{ y: -8, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.25 }}
+      className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-border bg-surface/90 backdrop-blur-md px-4 md:hidden"
+    >
+      {/* Logo */}
+      <Link to="/" className="flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary via-secondary to-accent shadow-md shadow-primary/30">
+          <span className="font-logo text-xs text-white">P</span>
+        </div>
+        <span className="font-logo text-lg gradient-text">Pixora</span>
+      </Link>
+
+      {/* Right actions */}
+      <div className="flex items-center gap-1">
+        {/* Theme toggle */}
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.88 }}
+          onClick={toggleTheme}
+          className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors"
+        >
+          <motion.span
+            key={theme}
+            initial={{ rotate: -30, opacity: 0 }}
+            animate={{ rotate: 0, opacity: 1 }}
+            transition={{ duration: 0.22 }}
+            className="inline-flex"
+          >
+            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </motion.span>
+        </motion.button>
+
+        {/* Messages */}
+        <Link to="/messages" className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors">
+          <motion.span whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }} className="relative block">
+            <MessageCircle className="h-5 w-5" strokeWidth={2} />
+            <Badge count={unreadCount} />
+          </motion.span>
+        </Link>
+
+        {/* Notifications */}
+        <Link to="/notifications" className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors">
+          <motion.span whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }} className="relative block">
+            <Bell className="h-5 w-5" strokeWidth={2} />
+            <Badge count={notifCount} />
+          </motion.span>
+        </Link>
+      </div>
+    </motion.header>
+  );
+};
+
+// ── Mobile Bottom Nav ─────────────────────────────────────────────────────────
+// Home | Search | [Create] | Explore | Profile
 export const BottomNav = ({ onCreateClick }) => {
   const { user } = useAuth();
   const location = useLocation();
-  const unreadCount = useUnreadCount();
 
   const isActive = (path) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
-  const linkItems = [
-    { name: 'Home',     path: '/',                          icon: Home },
-    { name: 'Messages', path: '/messages',                  icon: MessageCircle },
-    { name: 'Notifs',   path: '/notifications',             icon: Bell },
-    { name: 'Profile',  path: `/profile/${user?.username}`, icon: User },
+  const leftItems = [
+    { name: 'Home',    path: '/',        icon: Home },
+    { name: 'Search',  path: '/search',  icon: Search },
+  ];
+
+  const rightItems = [
+    { name: 'Explore', path: '/explore', icon: Compass },
+    { name: 'Profile', path: `/profile/${user?.username}`, icon: User },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 flex h-14 items-center justify-around border-t border-border bg-surface/90 backdrop-blur-md dark:bg-surface/90 md:hidden">
-      {linkItems.slice(0, 2).map((item) => {
+      {leftItems.map((item) => {
         const active = isActive(item.path);
         return (
           <Link key={item.name} to={item.path} className="p-2">
@@ -310,7 +397,6 @@ export const BottomNav = ({ onCreateClick }) => {
                 className={`h-6 w-6 transition-colors ${active ? 'text-primary' : 'text-text-secondary'}`}
                 strokeWidth={active ? 2.5 : 2}
               />
-              {item.name === 'Messages' && <UnreadBadge key={unreadCount} count={unreadCount} />}
             </motion.span>
           </Link>
         );
@@ -329,7 +415,7 @@ export const BottomNav = ({ onCreateClick }) => {
         </div>
       </motion.button>
 
-      {linkItems.slice(2).map((item) => {
+      {rightItems.map((item) => {
         const active = isActive(item.path);
         return (
           <Link key={item.name} to={item.path} className="p-2">

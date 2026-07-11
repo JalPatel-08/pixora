@@ -261,6 +261,20 @@ export const followUser = async (req, res, next) => {
         message: `${req.user.username} requested to follow you.`,
       });
 
+      // Emit socket notification to target user about the request
+      const io = req.app.get('io');
+      if (io) {
+        io.to(targetUserId).emit('notification', {
+          type: 'follow_request',
+          sender: {
+            _id: currentUserId,
+            username: req.user.username,
+            profilePicture: req.user.profilePicture,
+          },
+          message: `${req.user.username} requested to follow you.`,
+        });
+      }
+
       return res.json({
         success: true,
         requested: true,
@@ -333,11 +347,18 @@ export const unfollowUser = async (req, res, next) => {
     targetUser.followers = targetUser.followers.filter(
       (f) => f.toString() !== currentUserId.toString()
     );
+    // Also cancel any pending follow request
+    targetUser.followRequests = targetUser.followRequests.filter(
+      (f) => f.toString() !== currentUserId.toString()
+    );
     await targetUser.save({ validateBeforeSave: false });
 
     await User.findByIdAndUpdate(currentUserId, {
       $pull: { following: targetUserId },
     });
+
+    // Clean up any follow_request notification
+    await Notification.deleteMany({ recipient: targetUserId, sender: currentUserId, type: 'follow_request' });
 
     res.json({
       success: true,
@@ -413,6 +434,20 @@ export const acceptFollowRequest = async (req, res, next) => {
       type: 'follow_accept',
       message: `${user.username} accepted your follow request.`,
     });
+
+    // Emit socket notification to requester
+    const io = req.app.get('io');
+    if (io) {
+      io.to(requesterId).emit('notification', {
+        type: 'follow_accept',
+        sender: {
+          _id: userId,
+          username: user.username,
+          profilePicture: user.profilePicture,
+        },
+        message: `${user.username} accepted your follow request.`,
+      });
+    }
 
     res.json({ success: true, message: 'Follow request accepted.' });
   } catch (error) {
@@ -651,6 +686,66 @@ export const getSavedPosts = async (req, res, next) => {
       success: true,
       posts: user.savedPosts,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/users/close-friends - Get close friends list
+ */
+export const getCloseFriends = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .populate('closeFriends', 'username name profilePicture');
+    res.json({ success: true, closeFriends: user.closeFriends });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/users/:id/close-friends - Add to close friends
+ */
+export const addCloseFriend = async (req, res, next) => {
+  try {
+    const targetId = req.params.id;
+    const userId = req.user._id;
+
+    if (targetId === userId.toString()) {
+      return res.status(400).json({ success: false, message: 'Cannot add yourself.' });
+    }
+
+    await User.findByIdAndUpdate(userId, { $addToSet: { closeFriends: targetId } });
+    res.json({ success: true, message: 'Added to close friends.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/users/:id/close-friends - Remove from close friends
+ */
+export const removeCloseFriend = async (req, res, next) => {
+  try {
+    const targetId = req.params.id;
+    const userId = req.user._id;
+
+    await User.findByIdAndUpdate(userId, { $pull: { closeFriends: targetId } });
+    res.json({ success: true, message: 'Removed from close friends.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/users/follow-requests - Get pending follow requests
+ */
+export const getFollowRequests = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .populate('followRequests', 'username name profilePicture');
+    res.json({ success: true, followRequests: user.followRequests });
   } catch (error) {
     next(error);
   }
