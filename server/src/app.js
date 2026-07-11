@@ -26,15 +26,16 @@ app.use(helmet({
 }));
 
 // CORS
-const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.CLIENT_URL]
-  : ['http://localhost:5173', 'http://localhost:5174', process.env.CLIENT_URL].filter(Boolean);
-
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, Render health checks)
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      if (!origin) return callback(null, true);
+      const clientUrl = (process.env.CLIENT_URL || '').replace(/\/$/, '');
+      const devOrigins = ['http://localhost:5173', 'http://localhost:5174'];
+      const allowed = process.env.NODE_ENV === 'production'
+        ? [clientUrl]
+        : [...devOrigins, clientUrl].filter(Boolean);
+      if (allowed.includes(origin.replace(/\/$/, ''))) return callback(null, true);
       callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
