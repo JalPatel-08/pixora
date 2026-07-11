@@ -1,15 +1,22 @@
-import * as Brevo from '@getbrevo/brevo';
-
-const apiInstance = new Brevo.TransactionalEmailsApi();
-apiInstance.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
-
 const sendEmail = async ({ to, subject, html }) => {
-  const email = new Brevo.SendSmtpEmail();
-  email.sender = { name: 'Pixora', email: process.env.SMTP_USER };
-  email.to = [{ email: to }];
-  email.subject = subject;
-  email.htmlContent = html;
-  await apiInstance.sendTransacEmail(email);
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': process.env.BREVO_API_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: 'Pixora', email: process.env.SMTP_USER },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.text();
+    throw new Error(`Brevo API error ${res.status}: ${error}`);
+  }
 };
 
 export const sendVerificationEmail = async (email, token) => {
