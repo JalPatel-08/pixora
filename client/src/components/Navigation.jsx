@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSocket } from '../contexts/SocketContext';
 import {
   Home, Search, Compass, MessageCircle, Bell,
-  PlusSquare, User, LogOut, Sun, Moon,
+  PlusSquare, User, LogOut, Sun, Moon, Film,
 } from 'lucide-react';
 import { SearchPanel } from './SearchPanel';
 import { messageService, notificationService } from '../services/api';
@@ -191,6 +191,7 @@ export const Sidebar = ({ onCreateClick }) => {
 
   const navItems = [
     { name: 'Home',          path: '/',                          icon: Home },
+    { name: 'Reels',         path: '/reels',                     icon: Film },
     { name: 'Explore',       path: '/explore',                   icon: Compass },
     { name: 'Messages',      path: '/messages',                  icon: MessageCircle },
     { name: 'Notifications', path: '/notifications',             icon: Bell },
@@ -363,7 +364,7 @@ export const MobileTopBar = ({ onCreateClick }) => {
 };
 
 // ── Mobile Bottom Nav ─────────────────────────────────────────────────────────
-// Home | Search | [Create] | Explore | Profile
+// Home | Search(/explore) | Create(+) | Reels | Profile
 export const BottomNav = ({ onCreateClick }) => {
   const { user } = useAuth();
   const location = useLocation();
@@ -372,12 +373,12 @@ export const BottomNav = ({ onCreateClick }) => {
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
   const leftItems = [
-    { name: 'Home',    path: '/',        icon: Home },
-    { name: 'Search',  path: '/search',  icon: Search },
+    { name: 'Home',   path: '/',        icon: Home },
+    { name: 'Search', path: '/explore', icon: Search },
   ];
 
   const rightItems = [
-    { name: 'Explore', path: '/explore', icon: Compass },
+    { name: 'Reels',   path: '/reels',                     icon: Film },
     { name: 'Profile', path: `/profile/${user?.username}`, icon: User },
   ];
 

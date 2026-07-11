@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, Grid, Bookmark, Heart, MessageCircle, Loader2, Lock, UserCheck, UserX, Star, Users, X, Search, LogOut, Sun, Moon, Globe } from 'lucide-react';
+import { Settings, Grid, Bookmark, Heart, MessageCircle, Loader2, Lock, UserCheck, UserX, Star, Users, X, Search, LogOut, Sun, Moon, Globe, Film } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
-import { userService, messageService } from '../services/api';
+import { userService, messageService, reelService } from '../services/api';
 import { ProfileAvatar } from '../components/ProfileAvatar';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { UserListModal } from '../components/UserListModal';
@@ -203,6 +203,12 @@ export const Profile = () => {
     enabled: isOwn && tab === 'saved',
   });
 
+  const { data: reelsData, isLoading: reelsLoading } = useQuery({
+    queryKey: ['user-reels', username],
+    queryFn: () => reelService.getUserReels(username).then((d) => d.reels),
+    enabled: tab === 'reels' && !!profileUser,
+  });
+
   const { data: followers } = useQuery({
     queryKey: ['followers', username],
     queryFn: () => userService.getFollowers(username).then((d) => d.followers),
@@ -318,6 +324,7 @@ export const Profile = () => {
 
   const gridPosts = tab === 'saved' ? (savedPosts ?? []) : (posts ?? []);
   const gridLoading = tab === 'saved' ? savedLoading : postsLoading;
+  const userReels = reelsData ?? [];
 
   // Private account: non-follower sees lock screen instead of grid
   const isLocked = !isOwn && profileUser.isPrivate && !profileUser.isFollowing;
@@ -500,6 +507,7 @@ export const Profile = () => {
         <div className="flex justify-center border-b border-border">
           {[
             { key: 'posts', icon: Grid, label: 'Posts' },
+            { key: 'reels', icon: Film, label: 'Reels' },
             ...(isOwn ? [{ key: 'saved', icon: Bookmark, label: 'Saved' }] : []),
             ...(isOwn ? [{ key: 'closeFriends', icon: Star, label: 'Close Friends' }] : []),
           ].map(({ key, icon: Icon, label }) => (
@@ -519,6 +527,61 @@ export const Profile = () => {
             </motion.button>
           ))}
         </div>
+      )}
+
+      {/* Reels grid */}
+      {!isLocked && tab === 'reels' && (
+        <AnimatePresence mode="wait">
+          {reelsLoading ? (
+            <motion.div key="reel-skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <GridSkeleton />
+            </motion.div>
+          ) : userReels.length === 0 ? (
+            <motion.div key="reel-empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <EmptyGrid icon={Film} heading="No reels yet" sub={isOwn ? 'Share your first reel.' : 'Nothing here yet.'} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="reel-grid"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="grid grid-cols-3 gap-px pb-10 pt-px"
+            >
+              {userReels.map((reel, i) => (
+                <motion.div
+                  key={reel._id}
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: Math.min(i * 0.03, 0.3), duration: 0.25 }}
+                  whileHover={{ scale: 1.03, zIndex: 1 }}
+                  className="group relative aspect-square cursor-pointer overflow-hidden bg-surface"
+                >
+                  {reel.thumbnailUrl ? (
+                    <img src={reel.thumbnailUrl} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" />
+                  ) : (
+                    <video src={reel.videoUrl} className="h-full w-full object-cover" muted preload="metadata" />
+                  )}
+                  <div className="pointer-events-none absolute inset-0 flex items-end justify-start p-2">
+                    <Film className="h-4 w-4 text-white drop-shadow" />
+                  </div>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    whileHover={{ opacity: 1 }}
+                    transition={{ duration: 0.18 }}
+                    className="absolute inset-0 flex items-center justify-center gap-4 bg-black/45 text-white"
+                  >
+                    <span className="flex items-center gap-1.5 font-semibold drop-shadow">
+                      <Heart className="h-5 w-5 fill-white" />
+                      {reel.likesCount ?? reel.likes?.length ?? 0}
+                    </span>
+                  </motion.div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       )}
 
       {/* Private lock screen */}
@@ -554,8 +617,8 @@ export const Profile = () => {
             Follow this account to see their photos and videos.
           </motion.p>
         </motion.div>
-      ) : (
-        /* Grid */
+      ) : tab !== 'reels' ? (
+        /* Posts / Saved Grid */
         <AnimatePresence mode="wait">
           {gridLoading ? (
             <motion.div
@@ -593,7 +656,7 @@ export const Profile = () => {
             </motion.div>
           )}
         </AnimatePresence>
-      )}
+      ) : null}
 
       {/* Modals */}
       {activePostId && (

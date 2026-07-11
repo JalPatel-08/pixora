@@ -8,6 +8,7 @@ import {
   getReplies,
   deleteComment,
   toggleCommentLike,
+  pinComment,
 } from '../controllers/commentController.js';
 
 const router = Router();
@@ -37,5 +38,8 @@ router.delete('/comments/:commentId', protect, deleteComment);
 
 // Toggle like on a comment
 router.put('/comments/:commentId/like', protect, toggleCommentLike);
+
+// Pin / unpin a comment (post/reel owner only)
+router.put('/comments/:commentId/pin', protect, pinComment);
 
 export default router;

@@ -13,6 +13,7 @@ import Explore from './pages/Explore';
 import Notifications from './pages/Notifications';
 import SearchPage from './pages/Search';
 import MessagesPage from './pages/Messages';
+import Reels from './pages/Reels';
 
 const PageWrapper = ({ children }) => (
   <motion.div
@@ -48,6 +49,7 @@ function App() {
           <Route path="/explore" element={<PageWrapper><Explore /></PageWrapper>} />
           <Route path="/search" element={<PageWrapper><SearchPage /></PageWrapper>} />
           <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/reels" element={<Reels />} />
           <Route path="/notifications" element={<PageWrapper><Notifications /></PageWrapper>} />
           <Route path="/profile/:username" element={<PageWrapper><Profile /></PageWrapper>} />
         </Route>

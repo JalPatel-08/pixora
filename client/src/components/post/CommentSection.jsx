@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, Trash2, Send } from 'lucide-react';
+import { Heart, Trash2, Send, Pin, PinOff } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
@@ -9,12 +9,15 @@ import { timeAgo } from '../../utils/formatters';
 import { ProfileAvatar } from '../ProfileAvatar';
 import { Spinner } from '../common/Spinner';
 
-const CommentRow = ({ comment, postId }) => {
+// ── Single comment row ────────────────────────────────────────────────────────
+const CommentRow = ({ comment, postId, postOwnerId, onDeleted }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(comment.isLiked ?? false);
   const [likeCount, setLikeCount] = useState(comment.likes?.length ?? 0);
-  const isOwn = user?._id === comment.author?._id;
+
+  const isCommentOwn = user?._id === comment.author?._id;
+  const isPostOwner  = user?._id === postOwnerId;
 
   const likeMutation = useMutation({
     mutationFn: () => commentService.toggleLike(comment._id),
@@ -30,40 +33,97 @@ const CommentRow = ({ comment, postId }) => {
 
   const deleteMutation = useMutation({
     mutationFn: () => commentService.deleteComment(comment._id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', postId] });
+      onDeleted?.();
+    },
+  });
+
+  const pinMutation = useMutation({
+    mutationFn: () => commentService.pinComment(comment._id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['comments', postId] }),
   });
 
   return (
-    <div className="group flex items-start gap-2.5 py-2">
-      <Link to={`/profile/${comment.author?.username}`} className="flex-shrink-0">
+    <div
+      className={`group flex items-start gap-2.5 py-2 ${
+        comment.isPinned ? 'rounded-xl bg-primary/5 px-2 -mx-2' : ''
+      }`}
+    >
+      <Link
+        to={`/profile/${comment.author?.username}`}
+        className="flex-shrink-0"
+        tabIndex={-1}
+      >
         <ProfileAvatar user={comment.author} size="xs" />
       </Link>
 
       <div className="min-w-0 flex-1">
+        {comment.isPinned && (
+          <p className="mb-0.5 flex items-center gap-1 text-[10px] font-semibold text-primary/80">
+            <Pin className="h-2.5 w-2.5" />
+            Pinned
+          </p>
+        )}
         <p className="text-sm leading-snug text-text">
-          <Link to={`/profile/${comment.author?.username}`} className="mr-1 font-semibold hover:text-primary transition-colors">
+          <Link
+            to={`/profile/${comment.author?.username}`}
+            className="mr-1 font-semibold hover:text-primary transition-colors"
+          >
             {comment.author?.username}
           </Link>
           {comment.text}
         </p>
         <div className="mt-0.5 flex items-center gap-3 text-xs text-text-secondary">
           <span>{timeAgo(comment.createdAt)}</span>
-          {likeCount > 0 && <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>}
+          {likeCount > 0 && (
+            <span>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</span>
+          )}
         </div>
       </div>
 
+      {/* Action buttons — visible on hover */}
       <div className="flex flex-shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <motion.button whileTap={{ scale: 0.8 }} onClick={() => likeMutation.mutate()} className="p-1">
-          <Heart className={`h-3.5 w-3.5 ${liked ? 'fill-red-500 text-red-500' : 'text-text-secondary hover:text-red-400'}`} />
+        {/* Like */}
+        <motion.button
+          whileTap={{ scale: 0.8 }}
+          onClick={() => likeMutation.mutate()}
+          aria-label="Like comment"
+          className="p-1"
+        >
+          <Heart
+            className={`h-3.5 w-3.5 transition-colors ${
+              liked ? 'fill-red-500 text-red-500' : 'text-text-secondary hover:text-red-400'
+            }`}
+          />
         </motion.button>
-        {isOwn && (
+
+        {/* Pin / unpin — post owner only, top-level comments only */}
+        {isPostOwner && !comment.parentComment && (
+          <motion.button
+            whileTap={{ scale: 0.8 }}
+            onClick={() => pinMutation.mutate()}
+            disabled={pinMutation.isPending}
+            aria-label={comment.isPinned ? 'Unpin comment' : 'Pin comment'}
+            className="p-1"
+          >
+            {comment.isPinned
+              ? <PinOff className="h-3.5 w-3.5 text-primary hover:text-text-secondary transition-colors" />
+              : <Pin className="h-3.5 w-3.5 text-text-secondary hover:text-primary transition-colors" />
+            }
+          </motion.button>
+        )}
+
+        {/* Delete — comment owner OR post owner */}
+        {(isCommentOwn || isPostOwner) && (
           <motion.button
             whileTap={{ scale: 0.8 }}
             onClick={() => deleteMutation.mutate()}
             disabled={deleteMutation.isPending}
+            aria-label="Delete comment"
             className="p-1"
           >
-            <Trash2 className="h-3.5 w-3.5 text-text-secondary hover:text-danger" />
+            <Trash2 className="h-3.5 w-3.5 text-text-secondary hover:text-danger transition-colors" />
           </motion.button>
         )}
       </div>
@@ -71,7 +131,13 @@ const CommentRow = ({ comment, postId }) => {
   );
 };
 
-export const CommentSection = ({ postId, commentsCount }) => {
+// ── CommentSection ────────────────────────────────────────────────────────────
+// Props:
+//   postId        — the post or reel _id
+//   postOwnerId   — author._id of the post/reel (enables pin + owner-delete)
+//   onCommentAdded   — optional callback after a comment is successfully posted
+//   onCommentDeleted — optional callback after a comment is deleted
+export const CommentSection = ({ postId, postOwnerId, onCommentAdded, onCommentDeleted }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
@@ -79,6 +145,7 @@ export const CommentSection = ({ postId, commentsCount }) => {
   const { data, isLoading } = useQuery({
     queryKey: ['comments', postId],
     queryFn: () => commentService.getComments(postId),
+    enabled: !!postId,
   });
 
   const addMutation = useMutation({
@@ -86,45 +153,77 @@ export const CommentSection = ({ postId, commentsCount }) => {
     onSuccess: () => {
       setText('');
       queryClient.invalidateQueries({ queryKey: ['comments', postId] });
+      // Invalidate feed so post comment counts stay in sync
       queryClient.invalidateQueries({ queryKey: ['feed'] });
+      onCommentAdded?.();
     },
   });
 
+  // Prevent ANY event from leaking out of the form to parent overlays
+  const stopAll = (e) => { e.stopPropagation(); };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (text.trim()) addMutation.mutate(text.trim());
+    e.stopPropagation();
+    const trimmed = text.trim();
+    if (trimmed) addMutation.mutate(trimmed);
   };
 
   const comments = data?.comments ?? [];
 
   return (
-    <div className="border-t border-border">
+    <div className="border-t border-border" onClick={stopAll} onPointerDown={stopAll}>
+      {/* Comment list */}
       <div className="max-h-60 overflow-y-auto px-4 pt-2">
         {isLoading ? (
-          <div className="flex justify-center py-4"><Spinner size="sm" /></div>
+          <div className="flex justify-center py-4">
+            <Spinner size="sm" />
+          </div>
         ) : comments.length === 0 ? (
-          <p className="py-4 text-center text-xs text-text-secondary">No comments yet. Be the first.</p>
+          <p className="py-4 text-center text-xs text-text-secondary">
+            No comments yet. Be the first!
+          </p>
         ) : (
-          comments.map((c) => <CommentRow key={c._id} comment={c} postId={postId} />)
+          comments.map((c) => (
+            <CommentRow
+              key={c._id}
+              comment={c}
+              postId={postId}
+              postOwnerId={postOwnerId}
+              onDeleted={onCommentDeleted}
+            />
+          ))
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2.5 border-t border-border px-4 py-3">
+      {/* Input form — all events stopped so nothing leaks to the video/backdrop */}
+      <form
+        onSubmit={handleSubmit}
+        onClick={stopAll}
+        onPointerDown={stopAll}
+        onTouchStart={stopAll}
+        onTouchEnd={stopAll}
+        className="flex items-center gap-2.5 border-t border-border px-4 py-3"
+      >
         <ProfileAvatar user={user} size="xs" />
         <input
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { e.stopPropagation(); }}
+          onFocus={(e) => e.stopPropagation()}
           placeholder="Add a comment…"
           className="flex-1 bg-transparent text-sm text-text outline-none placeholder:text-text-secondary/60"
           maxLength={500}
+          autoComplete="off"
         />
         {text.trim() && (
           <motion.button
             type="submit"
             disabled={addMutation.isPending}
             whileTap={{ scale: 0.9 }}
-            className="flex-shrink-0 rounded-lg bg-primary p-1.5 text-white disabled:opacity-40"
+            aria-label="Post comment"
+            className="flex-shrink-0 rounded-lg bg-primary p-1.5 text-white disabled:opacity-40 focus:outline-none"
           >
             <Send className="h-3.5 w-3.5" />
           </motion.button>

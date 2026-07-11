@@ -1,16 +1,75 @@
 import { useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ImagePlus, Film, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Sidebar, BottomNav, MobileTopBar } from '../components/Navigation';
 import { RightSidebar } from '../components/RightSidebar';
 import { CreatePostModal } from '../components/feed/CreatePostModal';
+import { CreateReelModal } from '../components/reels/CreateReelModal';
+
+// ── Create type picker ────────────────────────────────────────────────────────
+const CreateMenu = ({ onPost, onReel, onClose }) => (
+  <AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+        className="w-full sm:max-w-xs overflow-hidden rounded-t-2xl sm:rounded-2xl bg-card border border-border shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="font-semibold text-text">Create</h2>
+          <button onClick={onClose} className="rounded-full p-1.5 text-text-secondary hover:bg-background hover:text-text transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="py-2">
+          <button
+            onClick={onPost}
+            className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-background transition-colors"
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <ImagePlus className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text">Post</p>
+              <p className="text-xs text-text-secondary">Share photos or videos</p>
+            </div>
+          </button>
+          <button
+            onClick={onReel}
+            className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-background transition-colors"
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent/10">
+              <Film className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text">Reel</p>
+              <p className="text-xs text-text-secondary">Share a short video</p>
+            </div>
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  </AnimatePresence>
+);
 
 export const MainLayout = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const [showCreate, setShowCreate] = useState(false);
+  // null | 'menu' | 'post' | 'reel'
+  const [createType, setCreateType] = useState(null);
   const location = useLocation();
   const isMessages = location.pathname.startsWith('/messages');
+  const isReels = location.pathname.startsWith('/reels');
 
   if (isLoading) {
     return (
@@ -40,13 +99,13 @@ export const MainLayout = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar onCreateClick={() => setShowCreate(true)} />
-      <MobileTopBar onCreateClick={() => setShowCreate(true)} />
+      <Sidebar onCreateClick={() => setCreateType('menu')} />
+      <MobileTopBar onCreateClick={() => setCreateType('menu')} />
 
       {/* pt-14 on mobile to clear the top bar; md:pt-0 since desktop has no top bar */}
       <main className="flex-1 pb-16 md:ml-64 md:pb-0 pt-14 md:pt-0">
-        {isMessages ? (
-          <div className="h-full px-4 pt-4">
+        {isMessages || isReels ? (
+          <div className={isMessages ? 'h-full px-4 pt-4' : 'h-full'}>
             <Outlet />
           </div>
         ) : (
@@ -63,11 +122,24 @@ export const MainLayout = () => {
         )}
       </main>
 
-      <BottomNav onCreateClick={() => setShowCreate(true)} />
+      <BottomNav onCreateClick={() => setCreateType('menu')} />
+
+      {createType === 'menu' && (
+        <CreateMenu
+          onPost={() => setCreateType('post')}
+          onReel={() => setCreateType('reel')}
+          onClose={() => setCreateType(null)}
+        />
+      )}
 
       <CreatePostModal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
+        isOpen={createType === 'post'}
+        onClose={() => setCreateType(null)}
+      />
+
+      <CreateReelModal
+        isOpen={createType === 'reel'}
+        onClose={() => setCreateType(null)}
       />
     </div>
   );

@@ -40,6 +40,7 @@ export const commentService = {
   addComment: (postId, body) => api.post(`/posts/${postId}/comments`, body).then((r) => r.data),
   deleteComment: (commentId) => api.delete(`/comments/${commentId}`).then((r) => r.data),
   toggleLike: (commentId) => api.put(`/comments/${commentId}/like`).then((r) => r.data),
+  pinComment: (commentId) => api.put(`/comments/${commentId}/pin`).then((r) => r.data),
 };
 
 export const notificationService = {
@@ -58,6 +59,17 @@ export const storyService = {
   reply: (id, text) => api.post(`/stories/${id}/reply`, { text }).then((r) => r.data),
   getViewers: (id) => api.get(`/stories/${id}/viewers`).then((r) => r.data),
   delete: (id) => api.delete(`/stories/${id}`).then((r) => r.data),
+};
+
+export const reelService = {
+  getFeed: (page = 1) => api.get(`/reels/feed?page=${page}&limit=8`).then((r) => r.data),
+  getUserReels: (username, page = 1) => api.get(`/reels/user/${username}?page=${page}&limit=12`).then((r) => r.data),
+  getReel: (id) => api.get(`/reels/${id}`).then((r) => r.data),
+  create: (formData) => api.post('/reels', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data),
+  toggleLike: (id) => api.put(`/reels/${id}/like`).then((r) => r.data),
+  toggleSave: (id) => api.put(`/reels/${id}/save`).then((r) => r.data),
+  recordView: (id) => api.put(`/reels/${id}/view`).then((r) => r.data),
+  delete: (id) => api.delete(`/reels/${id}`).then((r) => r.data),
 };
 
 export const messageService = {

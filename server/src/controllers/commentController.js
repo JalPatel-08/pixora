@@ -1,5 +1,6 @@
 import Comment from '../models/Comment.js';
 import Post from '../models/Post.js';
+import Reel from '../models/Reel.js';
 import Notification from '../models/Notification.js';
 
 /**
@@ -10,7 +11,8 @@ export const addComment = async (req, res, next) => {
     const { text, parentComment } = req.body;
     const postId = req.params.postId;
 
-    const post = await Post.findById(postId);
+    // Support both posts and reels (reels reuse the Comment model via the same postId field)
+    const post = await Post.findById(postId) || await Reel.findById(postId);
     if (!post) {
       return res.status(404).json({
         success: false,
@@ -75,19 +77,27 @@ export const getComments = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const comments = await Comment.find({
-      post: req.params.postId,
-      parentComment: null, // Top-level comments only
-    })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate('author', 'username name profilePicture');
+    // Fetch pinned comment first (if any), then the rest sorted newest-first
+    const [pinned, rest] = await Promise.all([
+      Comment.findOne({ post: req.params.postId, parentComment: null, isPinned: true })
+        .populate('author', 'username name profilePicture'),
+      Comment.find({
+        post: req.params.postId,
+        parentComment: null,
+        isPinned: { $ne: true },
+      })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('author', 'username name profilePicture'),
+    ]);
 
     const total = await Comment.countDocuments({
       post: req.params.postId,
       parentComment: null,
     });
+
+    const comments = pinned ? [pinned, ...rest] : rest;
 
     res.json({
       success: true,
@@ -136,8 +146,8 @@ export const deleteComment = async (req, res, next) => {
       });
     }
 
-    // Only comment author or post author can delete
-    const post = await Post.findById(comment.post);
+    // Only comment author or post/reel author can delete
+    const post = await Post.findById(comment.post) || await Reel.findById(comment.post);
     if (
       comment.author.toString() !== req.user._id.toString() &&
       post.author.toString() !== req.user._id.toString()
@@ -161,6 +171,40 @@ export const deleteComment = async (req, res, next) => {
       success: true,
       message: 'Comment deleted.',
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PUT /api/comments/:commentId/pin - Pin/unpin a comment (reel/post owner only)
+ */
+export const pinComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.commentId);
+    if (!comment) return res.status(404).json({ success: false, message: 'Comment not found.' });
+
+    const parent = await Post.findById(comment.post) || await Reel.findById(comment.post);
+    if (!parent) return res.status(404).json({ success: false, message: 'Post not found.' });
+
+    if (parent.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Only the post owner can pin comments.' });
+    }
+
+    const willPin = !comment.isPinned;
+
+    // Unpin any currently pinned comment on this post first
+    if (willPin) {
+      await Comment.updateMany(
+        { post: comment.post, isPinned: true },
+        { $set: { isPinned: false } }
+      );
+    }
+
+    comment.isPinned = willPin;
+    await comment.save({ validateBeforeSave: false });
+
+    res.json({ success: true, isPinned: willPin });
   } catch (error) {
     next(error);
   }

@@ -14,6 +14,7 @@ import commentRoutes from './routes/commentRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import storyRoutes from './routes/storyRoutes.js';
 import conversationRoutes from './routes/conversationRoutes.js';
+import reelRoutes from './routes/reelRoutes.js';
 
 const app = express();
 
@@ -81,6 +82,7 @@ app.use('/api', commentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api/reels', reelRoutes);
 
 // 404 handler
 app.use((req, res) => {

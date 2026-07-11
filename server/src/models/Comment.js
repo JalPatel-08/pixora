@@ -30,6 +30,11 @@ const commentSchema = new mongoose.Schema(
       ref: 'Comment',
       default: null,
     },
+    isPinned: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,
