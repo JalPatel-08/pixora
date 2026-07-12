@@ -56,9 +56,17 @@ export const storyService = {
   create: (formData) => api.post('/stories', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data),
   view: (id) => api.put(`/stories/${id}/view`).then((r) => r.data),
   like: (id) => api.put(`/stories/${id}/like`).then((r) => r.data),
+  react: (id, emoji) => api.put(`/stories/${id}/react`, { emoji }).then((r) => r.data),
   reply: (id, text) => api.post(`/stories/${id}/reply`, { text }).then((r) => r.data),
   getViewers: (id) => api.get(`/stories/${id}/viewers`).then((r) => r.data),
   delete: (id) => api.delete(`/stories/${id}`).then((r) => r.data),
+  getDrafts: () => api.get('/stories/drafts').then((r) => r.data),
+  publishDraft: (id, body) => api.put(`/stories/${id}/publish`, body).then((r) => r.data),
+  updateDraft: (id, body) => api.patch(`/stories/${id}/draft`, body).then((r) => r.data),
+  discardDraft: (id) => api.delete(`/stories/${id}/draft`).then((r) => r.data),
+  getArchive: () => api.get('/stories/archive').then((r) => r.data),
+  getHighlights: (username) => api.get(username ? `/stories/highlights/${username}` : '/stories/highlights').then((r) => r.data),
+  createHighlight: (body) => api.post('/stories/highlights', body).then((r) => r.data),
 };
 
 export const reelService = {

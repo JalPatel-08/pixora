@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react';
-import { Plus, Globe, Users, Star, X, ChevronRight } from 'lucide-react';
+import { Archive, Plus, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
 import { storyService } from '../../services/api';
 import { ProfileAvatar } from '../ProfileAvatar';
 import { StoryViewer } from './StoryViewer';
+import { StoryEditor } from './StoryEditor';
 
 // ── Animated gradient ring ────────────────────────────────────────────────────
 const StoryRing = ({ seen, children, onClick, className = '' }) => (
@@ -51,146 +52,18 @@ const StorySkeleton = ({ count = 5 }) => (
   </div>
 );
 
-// ── Audience option config ────────────────────────────────────────────────────
-const AUDIENCE_OPTIONS = [
-  {
-    value: 'everyone',
-    label: 'Everyone',
-    sub: 'Visible to all your followers',
-    icon: Globe,
-    color: 'text-primary',
-    bg: 'bg-primary/10',
-  },
-  {
-    value: 'followers',
-    label: 'Followers',
-    sub: 'Only people who follow you',
-    icon: Users,
-    color: 'text-secondary',
-    bg: 'bg-secondary/10',
-  },
-  {
-    value: 'close_friends',
-    label: 'Close Friends',
-    sub: 'Only your close friends list',
-    icon: Star,
-    color: 'text-success',
-    bg: 'bg-success/10',
-  },
-];
-
-// ── Audience Picker Sheet ─────────────────────────────────────────────────────
-const AudiencePicker = ({ file, preview, onConfirm, onCancel, isUploading }) => {
-  const [audience, setAudience] = useState('everyone');
-  const isVideo = file?.type?.startsWith('video/');
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4"
-      onClick={onCancel}
-    >
-      <motion.div
-        initial={{ y: 60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 60, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-        className="w-full sm:max-w-sm overflow-hidden rounded-t-2xl sm:rounded-2xl bg-card border border-border shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Preview thumbnail */}
-        <div className="relative h-36 w-full overflow-hidden bg-black">
-          {isVideo ? (
-            <video src={preview} className="h-full w-full object-cover opacity-80" muted playsInline />
-          ) : (
-            <img src={preview} alt="" className="h-full w-full object-cover opacity-80" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
-          <button
-            onClick={onCancel}
-            className="absolute right-3 top-3 rounded-full bg-black/50 p-1.5 text-white hover:bg-black/70 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          <p className="absolute bottom-3 left-4 text-sm font-semibold text-white drop-shadow">
-            Share story with…
-          </p>
-        </div>
-
-        {/* Options */}
-        <div className="p-3 space-y-1.5">
-          {AUDIENCE_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            const selected = audience === opt.value;
-            return (
-              <motion.button
-                key={opt.value}
-                whileHover={{ x: 2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setAudience(opt.value)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
-                  selected
-                    ? 'bg-primary/8 border border-primary/20'
-                    : 'hover:bg-background border border-transparent'
-                }`}
-              >
-                <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${opt.bg}`}>
-                  <Icon className={`h-4.5 w-4.5 ${opt.color}`} strokeWidth={selected ? 2.5 : 2} />
-                </div>
-                <div className="min-w-0 flex-1 text-left">
-                  <p className={`text-sm font-semibold ${selected ? 'text-primary' : 'text-text'}`}>
-                    {opt.label}
-                  </p>
-                  <p className="text-xs text-text-secondary">{opt.sub}</p>
-                </div>
-                <div className={`h-4 w-4 flex-shrink-0 rounded-full border-2 transition-colors ${
-                  selected ? 'border-primary bg-primary' : 'border-border'
-                }`}>
-                  {selected && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="h-full w-full rounded-full bg-white scale-[0.45]"
-                    />
-                  )}
-                </div>
-              </motion.button>
-            );
-          })}
-        </div>
-
-        {/* Share button */}
-        <div className="px-3 pb-4 pt-1">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onConfirm(audience)}
-            disabled={isUploading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-secondary transition-colors disabled:opacity-60 shadow-sm shadow-primary/30"
-          >
-            {isUploading ? (
-              <>
-                <motion.div
-                  className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                />
-                Sharing…
-              </>
-            ) : (
-              <>
-                Share story
-                <ChevronRight className="h-4 w-4" />
-              </>
-            )}
-          </motion.button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
+const StoryLibrary = ({ onClose }) => {
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState([]);
+  const [title, setTitle] = useState('');
+  const { data, isLoading } = useQuery({ queryKey: ['storyArchive'], queryFn: storyService.getArchive });
+  const createHighlight = useMutation({ mutationFn: storyService.createHighlight, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['storyHighlights'] }); setSelected([]); setTitle(''); } });
+  const archive = data?.stories || [];
+  return <div className="fixed inset-0 z-[9999] flex items-end bg-black/60 p-0 sm:items-center sm:justify-center sm:p-4" onClick={onClose}>
+    <div className="max-h-[82dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-card p-4 text-text sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
+      <div className="mb-4 flex items-center justify-between"><div><h2 className="font-semibold">Story archive</h2><p className="text-xs text-text-secondary">Select archived stories to create a highlight.</p></div><button onClick={onClose} aria-label="Close archive"><X /></button></div>
+      {isLoading ? <div className="grid grid-cols-3 gap-2">{[1, 2, 3].map((item) => <div key={item} className="aspect-[9/16] shimmer rounded-lg" />)}</div> : archive.length === 0 ? <p className="py-10 text-center text-sm text-text-secondary">Your expired stories will appear here.</p> : <><div className="grid grid-cols-3 gap-2">{archive.map((story) => <button key={story._id} onClick={() => setSelected((items) => items.includes(story._id) ? items.filter((id) => id !== story._id) : [...items, story._id])} className={`relative aspect-[9/16] overflow-hidden rounded-lg ${selected.includes(story._id) ? 'ring-2 ring-primary' : ''}`}>{story.media.mediaType === 'video' ? <video src={story.media.url} className="h-full w-full object-cover" muted /> : <img src={story.media.url} alt="Archived story" className="h-full w-full object-cover" loading="lazy" />}</button>)}</div><div className="mt-4 flex gap-2"><input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={30} placeholder="Highlight name" className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button disabled={!title.trim() || !selected.length || createHighlight.isPending} onClick={() => createHighlight.mutate({ title, storyIds: selected })} className="rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Create</button></div></>}</div>
+  </div>;
 };
 
 // ── StoriesBar ────────────────────────────────────────────────────────────────
@@ -204,6 +77,8 @@ export const StoriesBar = () => {
   // Pending file waiting for audience selection
   const [pendingFile, setPendingFile] = useState(null);   // File object
   const [pendingPreview, setPendingPreview] = useState(null); // object URL
+  const [editingDraft, setEditingDraft] = useState(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['stories'],
@@ -212,18 +87,30 @@ export const StoriesBar = () => {
   });
 
   const uploadMutation = useMutation({
-    mutationFn: ({ file, audience }) => {
+    mutationFn: ({ file, audience, elements, draftId, saveOnly }) => {
+      if (draftId) return saveOnly ? storyService.updateDraft(draftId, { audience, elements }) : storyService.publishDraft(draftId, { audience, elements });
       const fd = new FormData();
       fd.append('media', file);
       fd.append('audience', audience);
+      fd.append('elements', JSON.stringify(elements || []));
+      if (saveOnly) fd.append('isDraft', 'true');
       return storyService.create(fd);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['storyDrafts'] });
       clearPending();
+      setEditingDraft(null);
     },
-    onError: () => clearPending(),
+    // Do NOT call clearPending on error — keep the editor open so the user can retry
   });
+
+  const handlePublish = (payload) => {
+    uploadMutation.mutate(payload);
+  };
+
+  const draftsQuery = useQuery({ queryKey: ['storyDrafts'], queryFn: storyService.getDrafts, staleTime: 30 * 1000 });
+  const discardDraft = useMutation({ mutationFn: storyService.discardDraft, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['storyDrafts'] }); setEditingDraft(null); } });
 
   const groups = data?.stories ?? [];
 
@@ -242,11 +129,6 @@ export const StoriesBar = () => {
     setPendingFile(file);
     setPendingPreview(URL.createObjectURL(file));
     e.target.value = '';
-  };
-
-  const handleConfirm = (audience) => {
-    if (!pendingFile) return;
-    uploadMutation.mutate({ file: pendingFile, audience });
   };
 
   const openViewer = (idx) => { setStartGroup(idx); setViewerOpen(true); };
@@ -276,7 +158,10 @@ export const StoriesBar = () => {
           <div className="relative">
             <StoryRing
               seen={!hasOwnStory}
-              onClick={() => hasOwnStory ? openViewer(ownGroupIdx) : fileRef.current?.click()}
+              onClick={() => {
+                if (pendingFile) return;
+                hasOwnStory ? openViewer(ownGroupIdx) : fileRef.current?.click();
+              }}
             >
               <ProfileAvatar user={user} size="sm" />
             </StoryRing>
@@ -284,8 +169,8 @@ export const StoriesBar = () => {
             <motion.button
               whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 0.9 }}
-              onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-              disabled={uploadMutation.isPending}
+              onClick={(e) => { e.stopPropagation(); if (!pendingFile) fileRef.current?.click(); }}
+              disabled={uploadMutation.isPending || !!pendingFile}
               className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white border-2 border-card shadow-sm disabled:opacity-70"
             >
               {uploadMutation.isPending
@@ -306,6 +191,8 @@ export const StoriesBar = () => {
             onChange={handleFileChange}
           />
         </motion.div>
+
+        <button onClick={() => setLibraryOpen(true)} className="flex flex-shrink-0 flex-col items-center gap-1.5" aria-label="Open story archive"><div className="flex h-14 w-14 items-center justify-center rounded-full border border-dashed border-border bg-card"><Archive className="h-5 w-5 text-text-secondary" /></div><span className="text-[11px] text-text-secondary">Archive</span></button>
 
         {/* Other users' stories */}
         {!isError && groups.map((group, idx) => {
@@ -329,6 +216,14 @@ export const StoriesBar = () => {
           );
         })}
 
+        {draftsQuery.data?.drafts?.map((draft) => (
+          <button key={draft._id} onClick={() => setEditingDraft(draft)} className="flex flex-shrink-0 flex-col items-center gap-1.5" aria-label="Continue story draft">
+            <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-dashed border-primary p-0.5">
+              {draft.media.mediaType === 'video' ? <video src={draft.media.url} className="h-full w-full rounded-full object-cover" muted /> : <img src={draft.media.url} alt="Draft" className="h-full w-full rounded-full object-cover" />}
+            </div><span className="max-w-[56px] truncate text-[11px] font-medium text-text-secondary">Draft</span>
+          </button>
+        ))}
+
         {/* Empty state */}
         {!isError && groups.filter(
           (g) => g.user.username !== user?.username && g.user._id !== user?._id
@@ -344,18 +239,31 @@ export const StoriesBar = () => {
         )}
       </motion.div>
 
-      {/* Audience picker — shown after file is selected */}
+      {/* Story editor — shown after file is selected */}
       <AnimatePresence>
         {pendingFile && pendingPreview && (
-          <AudiencePicker
+          <StoryEditor
             file={pendingFile}
             preview={pendingPreview}
-            onConfirm={handleConfirm}
+            onPublish={handlePublish}
+            onSaveDraft={(payload) => handlePublish({ ...payload, saveOnly: true })}
             onCancel={clearPending}
             isUploading={uploadMutation.isPending}
           />
         )}
+        {editingDraft && (
+          <StoryEditor
+            draft={editingDraft}
+            onPublish={handlePublish}
+            onSaveDraft={(payload) => handlePublish({ ...payload, saveOnly: true })}
+            onDiscard={() => discardDraft.mutate(editingDraft._id)}
+            onCancel={() => setEditingDraft(null)}
+            isUploading={uploadMutation.isPending || discardDraft.isPending}
+          />
+        )}
       </AnimatePresence>
+
+      {libraryOpen && <StoryLibrary onClose={() => setLibraryOpen(false)} />}
 
       {/* Story viewer */}
       <AnimatePresence>

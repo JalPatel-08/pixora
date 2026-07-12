@@ -23,6 +23,13 @@ export const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
+// Stories use the same in-memory/Cloudinary flow, with room for short videos.
+export const storyUpload = multer({
+  storage,
+  fileFilter: imageVideoFilter,
+  limits: { fileSize: 50 * 1024 * 1024 },
+});
+
 // Reel upload — video only, 200 MB
 export const reelUpload = multer({
   storage,

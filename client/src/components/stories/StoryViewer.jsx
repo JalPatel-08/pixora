@@ -11,6 +11,20 @@ import { timeAgo } from '../../utils/formatters';
 const DURATION = 5000;
 const BOTTOM_BAR_H = 64;
 
+const StoryLayers = ({ elements = [] }) => <>{elements.map((element) => {
+  const style = { left: `${element.x}%`, top: `${element.y}%`, width: `${element.width}%`, minHeight: `${element.height}%`, transform: `translate(-50%, -50%) rotate(${element.rotation}deg)`, zIndex: 5 };
+  let content = null;
+  if (element.type === 'text') content = <span style={{ color: element.data?.color, fontFamily: element.data?.font, background: element.data?.background, fontSize: `${element.data?.size || 26}px` }}>{element.data?.text}</span>;
+  else if (element.type === 'drawing') content = <svg viewBox="0 0 100 100" className="h-full w-full">{element.data?.strokes?.map((stroke, index) => <polyline key={index} points={stroke.points} fill="none" stroke={stroke.color} strokeWidth={stroke.size} strokeLinecap="round" />)}</svg>;
+  else if (element.type === 'mention') content = <span className="rounded-full bg-primary px-3 py-1 text-sm font-semibold">@{element.data?.username}</span>;
+  else if (element.type === 'location') content = <span className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-black">📍 {element.data?.label}</span>;
+  else if (element.type === 'link') content = <a href={element.data?.url} target="_blank" rel="noreferrer" className="rounded-full bg-blue-500 px-3 py-1 text-sm font-semibold">🔗 {element.data?.label}</a>;
+  else if (element.type === 'music') content = <span className="rounded-full bg-fuchsia-600 px-3 py-1 text-sm">♫ {element.data?.title}</span>;
+  else if (element.type === 'gif') content = <img src={element.data?.url} alt="GIF sticker" className="h-full w-full object-contain" />;
+  else content = <span className="text-4xl">{element.data?.emoji}</span>;
+  return <div key={element.id} className="pointer-events-auto absolute" style={style}>{content}</div>;
+})}</>;
+
 // ── Seen By Modal ─────────────────────────────────────────────────────────────
 const SeenByModal = ({ storyId, onClose }) => {
   const { data, isLoading } = useQuery({
@@ -124,6 +138,7 @@ export const StoryViewer = ({ groups, startGroupIndex = 0, onClose }) => {
   const elapsedRef = useRef(0);
   const inputRef = useRef(null);
   const inputFocused = useRef(false);
+  const touchStart = useRef(null);
 
   const group = groups[groupIdx];
   const story = group?.stories[storyIdx];
@@ -156,6 +171,11 @@ export const StoryViewer = ({ groups, startGroupIndex = 0, onClose }) => {
     onSuccess: (data, id) => {
       setLikeState((prev) => ({ ...prev, [id]: { liked: data.liked, count: data.likeCount } }));
     },
+  });
+
+  const reactionMutation = useMutation({
+    mutationFn: ({ id, emoji }) => storyService.react(id, emoji),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stories'] }),
   });
 
   const replyMutation = useMutation({
@@ -245,9 +265,17 @@ export const StoryViewer = ({ groups, startGroupIndex = 0, onClose }) => {
     if (e.target.closest('[data-no-pause]')) return;
     elapsedRef.current = Date.now() - (startRef.current ?? Date.now());
     setPaused(true);
+    if (e.touches?.[0]) touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   };
   const handleCardPauseEnd = (e) => {
     if (e.target.closest('[data-no-pause]')) return;
+    const end = e.changedTouches?.[0];
+    if (touchStart.current && end) {
+      const dx = end.clientX - touchStart.current.x; const dy = end.clientY - touchStart.current.y;
+      touchStart.current = null;
+      if (dy > 90 && Math.abs(dy) > Math.abs(dx)) return onClose();
+      if (Math.abs(dx) > 70) { advance(dx > 0 ? 'prev' : 'next'); return; }
+    }
     setPaused(false);
   };
 
@@ -430,6 +458,7 @@ export const StoryViewer = ({ groups, startGroupIndex = 0, onClose }) => {
                   className="h-full w-full object-contain"
                 />
               )}
+              <StoryLayers elements={story.elements} />
             </motion.div>
           </AnimatePresence>
         </div>
@@ -516,6 +545,10 @@ export const StoryViewer = ({ groups, startGroupIndex = 0, onClose }) => {
                   )}
                 </AnimatePresence>
               </form>
+
+              <div className="flex gap-0.5" data-no-pause>
+                {['❤️', '😂', '😮', '🔥'].map((emoji) => <button key={emoji} onClick={(e) => { e.stopPropagation(); reactionMutation.mutate({ id: story._id, emoji }); }} disabled={reactionMutation.isPending} className="rounded-full p-1 text-base hover:bg-white/15" aria-label={`React ${emoji}`}>{emoji}</button>)}
+              </div>
 
               {/* Like button */}
               <motion.button

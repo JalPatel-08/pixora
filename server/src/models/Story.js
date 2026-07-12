@@ -8,6 +8,30 @@ const viewerSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const reactionSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    emoji: { type: String, required: true, maxlength: 12 },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const elementSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    type: { type: String, enum: ['text', 'drawing', 'emoji', 'gif', 'mention', 'location', 'link', 'music'], required: true },
+    x: { type: Number, default: 50 },
+    y: { type: Number, default: 50 },
+    width: { type: Number, default: 30 },
+    height: { type: Number, default: 12 },
+    rotation: { type: Number, default: 0 },
+    zIndex: { type: Number, default: 1 },
+    data: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { _id: false }
+);
+
 const storySchema = new mongoose.Schema(
   {
     author: {
@@ -30,6 +54,8 @@ const storySchema = new mongoose.Schema(
     },
     viewers: { type: [viewerSchema], default: [] },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    reactions: { type: [reactionSchema], default: [] },
+    elements: { type: [elementSchema], default: [] },
     audience: {
       type: String,
       enum: ['everyone', 'followers', 'close_friends'],
@@ -39,6 +65,7 @@ const storySchema = new mongoose.Schema(
       type: Date,
       default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
     },
+    isDraft: { type: Boolean, default: false, index: true },
   },
   {
     timestamps: true,
@@ -47,7 +74,9 @@ const storySchema = new mongoose.Schema(
   }
 );
 
-storySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// Stories deliberately remain in MongoDB after expiry so owners can archive them
+// and add them to highlights. Active feeds always query expiresAt explicitly.
+storySchema.index({ expiresAt: 1 });
 storySchema.index({ author: 1, createdAt: -1 });
 
 storySchema.virtual('viewCount').get(function () {
