@@ -67,6 +67,8 @@ export const storyService = {
   getArchive: () => api.get('/stories/archive').then((r) => r.data),
   getHighlights: (username) => api.get(username ? `/stories/highlights/${username}` : '/stories/highlights').then((r) => r.data),
   createHighlight: (body) => api.post('/stories/highlights', body).then((r) => r.data),
+  updateHighlight: (id, body) => api.patch(`/stories/highlights/${id}`, body).then((r) => r.data),
+  deleteHighlight: (id) => api.delete(`/stories/highlights/${id}`).then((r) => r.data),
 };
 
 export const reelService = {

@@ -19,6 +19,8 @@ import {
   getArchive,
   getHighlights,
   createHighlight,
+  updateHighlight,
+  deleteHighlight,
   deleteStory,
 } from '../controllers/storyController.js';
 
@@ -33,6 +35,8 @@ router.get('/highlights', getHighlights);
 router.get('/highlights/:username', getHighlights);
 router.get('/user/:username', getUserStories);
 router.post('/highlights', createHighlight);
+router.patch('/highlights/:id', updateHighlight);
+router.delete('/highlights/:id', deleteHighlight);
 
 router.post(
   '/',

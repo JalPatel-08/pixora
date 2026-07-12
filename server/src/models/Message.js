@@ -36,6 +36,13 @@ const messageSchema = new mongoose.Schema(
       mediaUrl: { type: String, default: null },
       mediaType: { type: String, enum: ['image', 'video', null], default: null },
     },
+    storyMention: {
+      storyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Story', default: null },
+      mediaUrl: { type: String, default: null },
+      mediaType: { type: String, enum: ['image', 'video', null], default: null },
+      authorUsername: { type: String, default: null },
+      allowReshare: { type: Boolean, default: true },
+    },
     video: {
       url: { type: String, default: null },
       publicId: { type: String, default: null },

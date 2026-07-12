@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../contexts/ThemeContext';
 import { userService, messageService, reelService } from '../services/api';
+import { StoryHighlights } from '../components/stories/StoryHighlights';
 import { ProfileAvatar } from '../components/ProfileAvatar';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { UserListModal } from '../components/UserListModal';
@@ -494,6 +495,8 @@ export const Profile = () => {
           </motion.div>
         </div>
       </motion.header>
+
+      <StoryHighlights username={username} isOwn={isOwn} />
 
       {/* Mobile stats */}
       <div className="flex justify-around border-b border-border py-3 md:hidden">

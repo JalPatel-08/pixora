@@ -3,10 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessageCircle, Send, ArrowLeft, Paperclip, Smile, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { StoryEditor } from '../components/stories/StoryEditor';
+import { storyService, messageService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../contexts/SocketContext';
 import { useMessageToast } from '../contexts/MessageToastContext';
-import { messageService } from '../services/api';
 import { ProfileAvatar } from '../components/ProfileAvatar';
 import { MessageBubble, TypingIndicator } from '../components/messages/MessageBubble';
 import {
@@ -207,7 +208,7 @@ const MediaPreview = ({ file, preview, uploadProgress, onRemove }) => {
 };
 
 // ── ChatWindow ────────────────────────────────────────────────────────────────
-const ChatWindow = ({ conversation, currentUserId, onBack }) => {
+const ChatWindow = ({ conversation, currentUserId, onBack, onAddToStory }) => {
   const { socket } = useSocket();
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
@@ -443,6 +444,7 @@ const ChatWindow = ({ conversation, currentUserId, onBack }) => {
                 isOwn={isOwn}
                 isFirst={isFirst}
                 isLast={isLast}
+                onAddToStory={onAddToStory}
               />
             ))}
 
@@ -568,7 +570,39 @@ export const MessagesPage = () => {
   const { setActiveConv } = useMessageToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeConvId, setActiveConvId] = useState(searchParams.get('c') || null);
+  const [mentionSticker, setMentionSticker] = useState(null); // { mediaUrl, mediaType, authorUsername }
   const queryClient = useQueryClient();
+
+  const storyUploadMutation = useMutation({
+    mutationFn: async ({ file, audience, elements }) => {
+      let mediaFile = file;
+      if (!mediaFile && mentionSticker?.mediaUrl) {
+        const blob = await fetch(mentionSticker.mediaUrl).then((r) => r.blob());
+        const ext = mentionSticker.mediaType === 'video' ? 'mp4' : 'jpg';
+        mediaFile = new File([blob], `mention-story.${ext}`, { type: blob.type });
+      }
+      const fd = new FormData();
+      fd.append('media', mediaFile);
+      fd.append('audience', audience);
+      fd.append('elements', JSON.stringify(elements || []));
+      return storyService.create(fd);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      setMentionSticker(null);
+    },
+  });
+
+  const handleAddToStory = useCallback((mention) => {
+    setMentionSticker(mention);
+  }, []);
+
+  const makeMentionElement = (mention) => ({
+    id: `mention-sticker-${Date.now()}`,
+    type: 'gif', // renders as <img> in Element
+    x: 50, y: 50, width: 40, height: 60, rotation: 0, zIndex: 1,
+    data: { url: mention.mediaUrl },
+  });
 
   useEffect(() => {
     setActiveConv(activeConvId);
@@ -603,7 +637,7 @@ export const MessagesPage = () => {
   const showChat = !!activeConvId;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden rounded-2xl border border-border bg-card shadow-sm md:h-[calc(100vh-2rem)]">
+    <div className="flex h-[calc(100vh-7rem)] overflow-hidden rounded-2xl border border-border bg-card shadow-sm md:h-[calc(100vh-2rem)]">
 
       {/* Conversation list panel */}
       <div className={`flex w-full flex-col border-r border-border md:w-80 md:flex-shrink-0 ${activeConvId ? 'hidden md:flex' : 'flex'}`}>
@@ -653,6 +687,7 @@ export const MessagesPage = () => {
                 conversation={activeConv}
                 currentUserId={user?._id}
                 onBack={clearConversation}
+                onAddToStory={handleAddToStory}
               />
             </motion.div>
           ) : (
@@ -668,6 +703,19 @@ export const MessagesPage = () => {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Story editor opened from a mention sticker */}
+      <AnimatePresence>
+        {mentionSticker && (
+          <StoryEditor
+            preview={mentionSticker.mediaUrl}
+            initialElements={[makeMentionElement(mentionSticker)]}
+            onPublish={(payload) => storyUploadMutation.mutate(payload)}
+            onCancel={() => setMentionSticker(null)}
+            isUploading={storyUploadMutation.isPending}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

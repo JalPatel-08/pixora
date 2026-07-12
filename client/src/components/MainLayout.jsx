@@ -105,7 +105,7 @@ export const MainLayout = () => {
       {/* pt-14 on mobile to clear the top bar; md:pt-0 since desktop has no top bar */}
       <main className="flex-1 pb-16 md:ml-64 md:pb-0 pt-14 md:pt-0">
         {isMessages || isReels ? (
-          <div className={isMessages ? 'h-full px-4 pt-4' : 'h-full'}>
+          <div className={isMessages ? 'h-full' : 'h-full'}>
             <Outlet />
           </div>
         ) : (

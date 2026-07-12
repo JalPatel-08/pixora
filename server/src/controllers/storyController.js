@@ -62,6 +62,34 @@ const withSeen = (story, userId) => {
 
 const storyPayload = (story, userId) => withSeen(story, userId);
 
+const deliverMentions = async (story, author, app) => {
+  const ids = [...new Set((story.elements ?? [])
+    .filter((element) => element.type === 'mention' && element.data?.userId)
+    .map((element) => element.data.userId.toString()))]
+    .filter((id) => id !== author._id.toString());
+  if (!ids.length) return;
+  const users = await User.find({ _id: { $in: ids } }).select('_id');
+  const io = app.get('io');
+  await Promise.all(users.map(async (recipient) => {
+    let conversation = await Conversation.findOne({ participants: { $all: [author._id, recipient._id], $size: 2 } });
+    if (!conversation) conversation = await Conversation.create({ participants: [author._id, recipient._id] });
+    const allowReshare = story.audience !== 'close_friends';
+    const message = await Message.create({
+      conversation: conversation._id,
+      sender: author._id,
+      text: `${author.username} mentioned you in a story.`,
+      storyMention: { storyId: story._id, mediaUrl: story.media.url, mediaType: story.media.mediaType, authorUsername: author.username, allowReshare },
+    });
+    await message.populate('sender', AUTHOR_SELECT);
+    conversation.lastMessage = message._id;
+    conversation.lastMessageAt = message.createdAt;
+    await conversation.save();
+    await Notification.create({ recipient: recipient._id, sender: author._id, type: 'mention', story: story._id, message: `${author.username} mentioned you in their story.` });
+    io?.to(recipient._id.toString()).emit('newMessage', { conversationId: conversation._id, message });
+    io?.to(recipient._id.toString()).emit('notification', { type: 'mention', storyId: story._id, message: `${author.username} mentioned you in their story.` });
+  }));
+};
+
 export const createStory = async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'Please provide an image or video.' });
@@ -77,6 +105,7 @@ export const createStory = async (req, res, next) => {
       isDraft,
     });
     await story.populate('author', AUTHOR_SELECT);
+    if (!isDraft) await deliverMentions(story, req.user, req.app);
     res.status(201).json({ success: true, message: isDraft ? 'Draft saved.' : 'Story created successfully.', story: storyPayload(story, req.user._id) });
   } catch (error) { next(error); }
 };
@@ -132,6 +161,7 @@ export const publishDraft = async (req, res, next) => {
     story.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await story.save();
     await story.populate('author', AUTHOR_SELECT);
+    await deliverMentions(story, req.user, req.app);
     res.json({ success: true, message: 'Story published.', story: storyPayload(story, req.user._id) });
   } catch (error) { next(error); }
 };
@@ -250,6 +280,35 @@ export const createHighlight = async (req, res, next) => {
     const highlight = await StoryHighlight.create({ author: req.user._id, title: req.body.title.trim(), coverUrl: req.body.coverUrl || stories[0].media.url, stories: stories.map((story) => story._id) });
     await highlight.populate('stories');
     res.status(201).json({ success: true, highlight });
+  } catch (error) { next(error); }
+};
+
+export const updateHighlight = async (req, res, next) => {
+  try {
+    const highlight = await StoryHighlight.findOne({ _id: req.params.id, author: req.user._id });
+    if (!highlight) return res.status(404).json({ success: false, message: 'Highlight not found.' });
+    if (req.body.title !== undefined) {
+      if (!req.body.title.trim()) return res.status(400).json({ success: false, message: 'Highlight name is required.' });
+      highlight.title = req.body.title.trim();
+    }
+    if (Array.isArray(req.body.storyIds)) {
+      const stories = await Story.find({ _id: { $in: req.body.storyIds }, author: req.user._id, isDraft: false });
+      if (!stories.length) return res.status(400).json({ success: false, message: 'A highlight needs at least one story.' });
+      highlight.stories = stories.map((story) => story._id);
+      if (!req.body.coverUrl) highlight.coverUrl = stories[0].media.url;
+    }
+    if (req.body.coverUrl !== undefined) highlight.coverUrl = req.body.coverUrl;
+    await highlight.save();
+    await highlight.populate('stories');
+    res.json({ success: true, highlight });
+  } catch (error) { next(error); }
+};
+
+export const deleteHighlight = async (req, res, next) => {
+  try {
+    const highlight = await StoryHighlight.findOneAndDelete({ _id: req.params.id, author: req.user._id });
+    if (!highlight) return res.status(404).json({ success: false, message: 'Highlight not found.' });
+    res.json({ success: true, message: 'Highlight deleted.' });
   } catch (error) { next(error); }
 };
 

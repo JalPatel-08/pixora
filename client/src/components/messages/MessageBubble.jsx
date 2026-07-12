@@ -153,7 +153,7 @@ const VideoContent = ({ url, onOpen }) => (
 );
 
 // ── Message bubble ────────────────────────────────────────────────────────────
-export const MessageBubble = ({ message, isOwn, isFirst, isLast }) => {
+export const MessageBubble = ({ message, isOwn, isFirst, isLast, onAddToStory }) => {
   const [viewer, setViewer] = useState(null); // { src, type }
 
   const ownCorners =
@@ -173,9 +173,11 @@ export const MessageBubble = ({ message, isOwn, isFirst, isLast }) => {
   const hasMedia = hasImage || hasVideo;
   const hasText = !!message.text?.trim();
   const isSharedPost = !!message.sharedPost?.postId;
+  const isStoryMention = !!message.storyMention?.storyId;
+  const isStoryReply = !!message.storyReply?.storyId;
 
   // Media-only bubbles have no padding; text+media or text-only have padding
-  const bubbleBase = `text-sm shadow-sm ${isSharedPost || hasMedia ? 'max-w-[80%]' : 'max-w-[72%]'}`;
+  const bubbleBase = `text-sm shadow-sm ${isSharedPost || isStoryReply || isStoryMention || hasMedia ? 'max-w-[80%]' : 'max-w-[72%]'}`;
   const bubbleColor = isOwn
     ? `bg-primary text-white ${ownCorners}`
     : `bg-background text-text border border-border ${otherCorners}`;
@@ -200,6 +202,34 @@ export const MessageBubble = ({ message, isOwn, isFirst, isLast }) => {
           {isSharedPost && (
             <div className="p-2">
               <SharedPostCard sharedPost={message.sharedPost} isOwn={isOwn} />
+            </div>
+          )}
+
+          {/* Story mention card */}
+          {isStoryMention && (
+            <div className="overflow-hidden rounded-xl border border-white/20 bg-black/20">
+              {message.storyMention.mediaType === 'video'
+                ? <video src={message.storyMention.mediaUrl} className="h-40 w-full object-cover" muted playsInline preload="metadata" />
+                : <img src={message.storyMention.mediaUrl} alt="Story" className="h-40 w-full object-cover" loading="lazy" />}
+              <div className="px-2 py-1.5">
+                <p className="text-xs opacity-80">@{message.storyMention.authorUsername} mentioned you in their story</p>
+                {!isOwn && message.storyMention.allowReshare && (
+                  <button
+                    onClick={() => onAddToStory?.(message.storyMention)}
+                    className="mt-1.5 w-full rounded-lg bg-primary py-1.5 text-xs font-semibold text-white"
+                  >
+                    Add to Your Story
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Story reply preview */}
+          {isStoryReply && (
+            <div className="overflow-hidden rounded-xl border border-white/20 bg-black/20">
+              {message.storyReply.mediaType === 'video' ? <video src={message.storyReply.mediaUrl} className="h-32 w-full object-cover" muted playsInline preload="metadata" /> : <img src={message.storyReply.mediaUrl} alt="Story preview" className="h-32 w-full object-cover" loading="lazy" />}
+              <p className="px-2 py-1.5 text-xs opacity-80">Story reply</p>
             </div>
           )}
 

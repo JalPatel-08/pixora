@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useSocket } from '../contexts/SocketContext';
 import {
   Home, Search, Compass, MessageCircle, Bell,
-  PlusSquare, User, LogOut, Sun, Moon, Film,
+  PlusSquare, User, LogOut, Sun, Moon, Film, ArrowLeft,
 } from 'lucide-react';
 import { SearchPanel } from './SearchPanel';
 import { messageService, notificationService } from '../services/api';
@@ -305,60 +305,89 @@ export const MobileTopBar = ({ onCreateClick }) => {
   const notifCount = useUnreadNotifCount();
   const isMessages = location.pathname.startsWith('/messages');
 
-  // Hide on messages page (it has its own header)
-  if (isMessages) return null;
-
   return (
     <motion.header
+      key={isMessages ? 'messages-bar' : 'default-bar'}
       initial={{ y: -8, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.25 }}
       className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-border bg-surface/90 backdrop-blur-md px-4 md:hidden"
     >
-      {/* Logo */}
-      <Link to="/" className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary via-secondary to-accent shadow-md shadow-primary/30">
-          <span className="font-logo text-xs text-white">P</span>
-        </div>
-        <span className="font-logo text-lg gradient-text">Pixora</span>
-      </Link>
-
-      {/* Right actions */}
-      <div className="flex items-center gap-1">
-        {/* Theme toggle */}
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.88 }}
-          onClick={toggleTheme}
-          className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors"
-        >
-          <motion.span
-            key={theme}
-            initial={{ rotate: -30, opacity: 0 }}
-            animate={{ rotate: 0, opacity: 1 }}
-            transition={{ duration: 0.22 }}
-            className="inline-flex"
+      {isMessages ? (
+        /* ── Messages header variant ── */
+        <>
+          <Link
+            to="/"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-text-secondary hover:bg-background hover:text-text transition-colors"
+            aria-label="Back to home"
           >
-            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </motion.span>
-        </motion.button>
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
 
-        {/* Messages */}
-        <Link to="/messages" className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors">
-          <motion.span whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }} className="relative block">
-            <MessageCircle className="h-5 w-5" strokeWidth={2} />
-            <Badge count={unreadCount} />
-          </motion.span>
-        </Link>
+          <span className="font-semibold text-text">Messages</span>
 
-        {/* Notifications */}
-        <Link to="/notifications" className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors">
-          <motion.span whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }} className="relative block">
-            <Bell className="h-5 w-5" strokeWidth={2} />
-            <Badge count={notifCount} />
-          </motion.span>
-        </Link>
-      </div>
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.88 }}
+            onClick={toggleTheme}
+            className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors"
+            aria-label="Toggle theme"
+          >
+            <motion.span
+              key={theme}
+              initial={{ rotate: -30, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              transition={{ duration: 0.22 }}
+              className="inline-flex"
+            >
+              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </motion.span>
+          </motion.button>
+        </>
+      ) : (
+        /* ── Default header ── */
+        <>
+          <Link to="/" className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary via-secondary to-accent shadow-md shadow-primary/30">
+              <span className="font-logo text-xs text-white">P</span>
+            </div>
+            <span className="font-logo text-lg gradient-text">Pixora</span>
+          </Link>
+
+          <div className="flex items-center gap-1">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.88 }}
+              onClick={toggleTheme}
+              className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors"
+            >
+              <motion.span
+                key={theme}
+                initial={{ rotate: -30, opacity: 0 }}
+                animate={{ rotate: 0, opacity: 1 }}
+                transition={{ duration: 0.22 }}
+                className="inline-flex"
+              >
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </motion.span>
+            </motion.button>
+
+            <Link to="/messages" className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors">
+              <motion.span whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }} className="relative block">
+                <MessageCircle className="h-5 w-5" strokeWidth={2} />
+                <Badge count={unreadCount} />
+              </motion.span>
+            </Link>
+
+            <Link to="/notifications" className="relative rounded-full p-2 text-text-secondary hover:bg-background hover:text-text transition-colors">
+              <motion.span whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.88 }} className="relative block">
+                <Bell className="h-5 w-5" strokeWidth={2} />
+                <Badge count={notifCount} />
+              </motion.span>
+            </Link>
+          </div>
+        </>
+      )}
     </motion.header>
   );
 };
